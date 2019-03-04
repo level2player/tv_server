@@ -13,25 +13,24 @@ import (
 )
 
 var (
-	historyUrl = "https://api.hbdm.com/market/history/kline"
+	historyUrl = "https://www.zg.com/api/v1/kline"
 	corsConfig = cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowOriginFunc:  func(origin string) bool { return true },
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET"},
 		AllowHeaders:     []string{"*"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}
 )
 
 func main() {
 	r := gin.Default()
-	routers := r.Group("/api/v1")
+	routers := r.Group("/api/v1/udf")
 	routers.Use(cors.New(corsConfig))
-
-	routers.GET("/udf/config", ConfigHandler)
-	routers.GET("/udf/symbols", SymbolsHandler)
-	routers.GET("/udf/history", HistoryHandler)
+	routers.GET("/config", ConfigHandler)
+	routers.GET("/symbols", SymbolsHandler)
+	routers.GET("/history", HistoryHandler)
 	err := r.Run(":8080")
 	if err != nil {
 		panic(err)
@@ -74,7 +73,7 @@ func SymbolsHandler(c *gin.Context) {
 		Minmov:               1,
 		Pricescale:           100,
 		Pointvalue:           1,
-		IntradayMultipliers:  []string{"1", "60", "D"},
+		IntradayMultipliers:  []string{"1", "5", "15", "30", "60", "D", "W"},
 		HasIntraday:          true,
 		HasDaily:             true,
 		HasWeeklyAndMonthly:  true,
@@ -92,58 +91,78 @@ func HistoryHandler(c *gin.Context) {
 	from, _ := strconv.ParseInt(c.Query("from"), 10, 64)
 	to, _ := strconv.ParseInt(c.Query("to"), 10, 64)
 	resolution := c.Query("resolution")
-
-	size, period := getDiff(resolution, from, to)
-
-	u := fmt.Sprintf("%s?period=%s&size=%d&symbol=%s", historyUrl, period, size, symbol)
-	resp, err := http.Get(u)
+	size, period := getTimeDiff(resolution, from, to)
+	resp, err := http.Get(fmt.Sprintf("%s?type=%s&size=%d&symbol=%s", historyUrl, period, size, symbol))
 	if err != nil {
-
+		c.JSON(http.StatusOK, gin.H{"S": "no_data"})
+		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-
+		c.JSON(http.StatusOK, gin.H{"S": "no_data"})
+		return
 	}
-
-	jsp := struct {
-		Ch   string `json:"ch"`
-		Data []struct {
-			Amount float64 `json:"amount"`
-			Close  float64 `json:"close"`
-			Count  int     `json:"count"`
-			High   int     `json:"high"`
-			ID     int     `json:"id"`
-			Low    int     `json:"low"`
-			Open   float64 `json:"open"`
-			Vol    int     `json:"vol"`
-		} `json:"data"`
-		Status string `json:"status"`
-		Ts     int64  `json:"ts"`
-	}{}
-
+	jsp := [][]interface{}{}
 	err = json.Unmarshal(body, &jsp)
 	if err != nil {
-
+		c.JSON(http.StatusOK, gin.H{"S": "no_data"})
+		return
 	}
-	c.JSON(http.StatusOK, jsp)
+	tvResp := struct {
+		S string    `json:"s"`
+		T []int64   `json:"t"`
+		C []float64 `json:"c"`
+		O []float64 `json:"o"`
+		H []float64 `json:"h"`
+		L []float64 `json:"l"`
+		V []float64 `json:"v"`
+	}{
+		S: "ok",
+	}
+	t := make([]int64, len(jsp))
+	cl := make([]float64, len(jsp))
+	o := make([]float64, len(jsp))
+	h := make([]float64, len(jsp))
+	l := make([]float64, len(jsp))
+	v := make([]float64, len(jsp))
+
+	for i, k := range jsp {
+		t[i] = int64(k[0].(float64)) / 1000
+		o[i], _ = strconv.ParseFloat(k[1].(string), 64)
+		h[i], _ = strconv.ParseFloat(k[2].(string), 64)
+		l[i], _ = strconv.ParseFloat(k[3].(string), 64)
+		cl[i], _ = strconv.ParseFloat(k[4].(string), 64)
+		v[i], _ = strconv.ParseFloat(k[5].(string), 64)
+	}
+	tvResp.T = t
+	tvResp.C = cl
+	tvResp.O = o
+	tvResp.H = h
+	tvResp.L = l
+	tvResp.V = v
+
+	c.JSON(http.StatusOK, tvResp)
 }
 
-func getDiff(resolution string, from, to int64) (size int, period string) {
+func getTimeDiff(resolution string, from, to int64) (size int, period string) {
 	diff := time.Unix(int64(to), 0).Sub(time.Unix(int64(from), 0))
-	if resolution == "D" {
-		dHours := diff.Hours()
-		if dHours <= 0 {
-			return 1, "1day"
-		} else {
-			if (int(dHours) % 24) > 0 {
-				return int(dHours)/24 + 1, "1day"
-			} else {
-				return int(dHours) / 24, "1day"
-			}
-		}
-	} else {
+	switch resolution {
+	case "1":
+		return int(diff.Minutes()), "1min"
+	case "5":
+		return int(diff.Hours()) * 12, "5min"
+	case "15":
+		return int(diff.Hours()) * 4, "15min"
+	case "30":
+		return int(diff.Hours()) * 2, "30min"
+	case "60":
+		return int(diff.Hours()), "hour"
+	case "D":
+		return int(diff.Hours() / 24), "day"
+	case "W":
+		return int(diff.Hours() / 24 / 7), "week"
+	default:
 		return 0, ""
 	}
-
 }
