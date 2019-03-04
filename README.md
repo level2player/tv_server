@@ -1,2 +1,2 @@
 # tv_server
-TradingView Backend Server
+TradingView simplest implementation pattern for udf
