@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-contrib/cors"
@@ -92,7 +93,11 @@ func HistoryHandler(c *gin.Context) {
 	to, _ := strconv.ParseInt(c.Query("to"), 10, 64)
 	resolution := c.Query("resolution")
 	size, period := getTimeDiff(resolution, from, to)
-	resp, err := http.Get(fmt.Sprintf("%s?type=%s&size=%d&symbol=%s", historyUrl, period, size, symbol))
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Get(fmt.Sprintf("%s?type=%s&size=%d&symbol=%s", historyUrl, period, size, symbol))
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
 		return
