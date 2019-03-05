@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	historyUrl = "https://www.zg.com/api/v1/kline"
+	historyUrl = "http://www.zg.com/api/v1/kline"
 	corsConfig = cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowOriginFunc:  func(origin string) bool { return true },
