@@ -94,19 +94,19 @@ func HistoryHandler(c *gin.Context) {
 	size, period := getTimeDiff(resolution, from, to)
 	resp, err := http.Get(fmt.Sprintf("%s?type=%s&size=%d&symbol=%s", historyUrl, period, size, symbol))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"S": "no_data"})
+		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"S": "no_data"})
+		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
 		return
 	}
 	jsp := [][]interface{}{}
 	err = json.Unmarshal(body, &jsp)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"S": "no_data"})
+		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
 		return
 	}
 	tvResp := struct {
