@@ -99,20 +99,24 @@ func HistoryHandler(c *gin.Context) {
 	client := &http.Client{Transport: tr}
 	resp, err := client.Get(fmt.Sprintf("%s?type=%s&size=%d&symbol=%s", historyUrl, period, size, symbol))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
+		c.JSON(http.StatusOK, gin.H{"S": "fail", "err_info": err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
+		c.JSON(http.StatusOK, gin.H{"S": "fail", "err_info": err.Error()})
 		return
 	}
 	jsp := [][]interface{}{}
 	err = json.Unmarshal(body, &jsp)
-	if err != nil || len(jsp) == 0 {
-		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"S": "fail", "err_info": err.Error()})
 		return
+	}
+
+	if len(jsp) == 0 {
+		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
 	}
 	tvResp := struct {
 		S string    `json:"s"`
