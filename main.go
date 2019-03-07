@@ -110,7 +110,7 @@ func HistoryHandler(c *gin.Context) {
 	}
 	jsp := [][]interface{}{}
 	err = json.Unmarshal(body, &jsp)
-	if err != nil {
+	if err != nil || len(jsp) == 0 {
 		c.JSON(http.StatusOK, gin.H{"S": "no_data", "err_info": err.Error()})
 		return
 	}
