@@ -72,7 +72,7 @@ func SymbolsHandler(c *gin.Context) {
 	}{S: "ok", Name: symbol,
 		Timezone:             "Asia/Shanghai",
 		Minmov:               1,
-		Pricescale:           100,
+		Pricescale:           1000,
 		Pointvalue:           1,
 		IntradayMultipliers:  []string{"1", "5", "15", "30", "60", "D", "W"},
 		HasIntraday:          true,
